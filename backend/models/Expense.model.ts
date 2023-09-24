@@ -1,6 +1,6 @@
 import { Schema, model, models } from "mongoose";
 
-const Expense = new Schema(
+const ExpenseSchema = new Schema(
 	{
 		title: {
 			type: String,
@@ -27,4 +27,5 @@ const Expense = new Schema(
 	{ timestamps: true, versionKey: false },
 );
 
-module.exports = models.Expense || model("Expense", Expense);
+const Expense = models.Expense || model("Expense", ExpenseSchema);
+export default Expense;

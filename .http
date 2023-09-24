@@ -1,0 +1,14 @@
+
+
+GET http://localhost:4000/api/expense
+
+### Create expense
+POST http://localhost:4000/api/expense/create
+Content-Type: application/json
+
+{
+  "title": "Expense 1",
+  "amount": 100,
+  "category": "Expense",
+  "date": "2020-01-01"
+}
