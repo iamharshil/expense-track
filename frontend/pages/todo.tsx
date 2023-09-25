@@ -1,5 +1,5 @@
 // cSpell:word todos
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
 	CaretSortIcon,
 	ChevronDownIcon,
@@ -38,46 +38,24 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useSnackbar } from "notistack";
 
 export type Payment = {
 	id: string;
 	amount: number;
-	status: "pending" | "processing" | "success" | "failed";
-	email: string;
+	title: string;
+	category: string;
 };
-
-const data: Payment[] = [
-	{
-		id: "m5gr84i9",
-		amount: 316,
-		status: "success",
-		email: "ken99@yahoo.com",
-	},
-	{
-		id: "3u1reuv4",
-		amount: 242,
-		status: "success",
-		email: "Abe45@gmail.com",
-	},
-	{
-		id: "derv1ws0",
-		amount: 837,
-		status: "processing",
-		email: "Monserrat44@gmail.com",
-	},
-	{
-		id: "5kma53ae",
-		amount: 874,
-		status: "success",
-		email: "Silas22@gmail.com",
-	},
-	{
-		id: "bhqecj4p",
-		amount: 721,
-		status: "failed",
-		email: "carmella@hotmail.com",
-	},
-];
 
 export const columns: ColumnDef<Payment>[] = [
 	{
@@ -100,26 +78,28 @@ export const columns: ColumnDef<Payment>[] = [
 		enableHiding: false,
 	},
 	{
-		accessorKey: "status",
-		header: "Status",
+		accessorKey: "title",
+		header: "Title",
 		cell: ({ row }) => (
-			<div className="capitalize">{row.getValue("status")}</div>
+			<div className="capitalize">{row.getValue("title")}</div>
 		),
 	},
 	{
-		accessorKey: "email",
+		accessorKey: "category",
 		header: ({ column }) => {
 			return (
 				<Button
 					variant="ghost"
 					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
 				>
-					Email
+					Category
 					<CaretSortIcon className="ml-2 h-4 w-4" />
 				</Button>
 			);
 		},
-		cell: ({ row }) => <div className="lowercase">{row.getValue("email")}</div>,
+		cell: ({ row }) => (
+			<div className="lowercase">{row.getValue("category")}</div>
+		),
 	},
 	{
 		accessorKey: "amount",
@@ -130,7 +110,7 @@ export const columns: ColumnDef<Payment>[] = [
 			// Format the amount as a dollar amount
 			const formatted = new Intl.NumberFormat("en-US", {
 				style: "currency",
-				currency: "USD",
+				currency: "INR",
 			}).format(amount);
 
 			return <div className="text-right font-medium">{formatted}</div>;
@@ -153,7 +133,7 @@ export const columns: ColumnDef<Payment>[] = [
 					<DropdownMenuContent align="end">
 						<DropdownMenuLabel>Actions</DropdownMenuLabel>
 						<DropdownMenuItem
-							onClick={() => navigator.clipboard.writeText(payment.id)}
+							onClick={() => navigator.clipboard.writeText(payment._id)}
 						>
 							Copy payment ID
 						</DropdownMenuItem>
@@ -173,9 +153,10 @@ const TodoPage = () => {
 		done: boolean;
 	};
 
+	const [data, setData] = useState([]);
 	const [todos, setTodos] = useState<Todo[]>([]);
 	const [todo, setTodo] = useState<string>("");
-	const [theme, setTheme] = useState<string>("dark");
+	const [theme, setTheme] = useState<string>("light");
 	const [sorting, setSorting] = React.useState<SortingState>([]);
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
 		[],
@@ -183,6 +164,13 @@ const TodoPage = () => {
 	const [columnVisibility, setColumnVisibility] =
 		React.useState<VisibilityState>({});
 	const [rowSelection, setRowSelection] = React.useState({});
+	const [singleData, setSingleData] = useState({
+		title: "",
+		amount: 0,
+		category: "",
+	});
+	const { enqueueSnackbar, closeSnackbar } = useSnackbar();
+	const [open, setOpen] = useState(false);
 
 	const table = useReactTable({
 		data,
@@ -225,6 +213,60 @@ const TodoPage = () => {
 		setTheme(theme === "dark" ? "light" : "dark");
 	};
 
+	async function getData() {
+		const response = await fetch(`${process.env.API_PATH}/expense`);
+		const responseData = await response.json();
+		console.log("responseData", responseData);
+		if (responseData.success) {
+			console.log(responseData.data);
+			setData(responseData.data);
+		} else {
+			setData([]);
+		}
+	}
+
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
+
+		// validate data
+		if (!singleData.title || !singleData.amount || !singleData.category) {
+			return enqueueSnackbar("Please fill all the fields", {
+				variant: "error",
+			});
+		} else if (singleData?._id) {
+		} else {
+			const response = await fetch(`${process.env.API_PATH}/expense/create`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(singleData),
+			});
+			const responseData = await response.json();
+			if (responseData.success) {
+				setSingleData({
+					title: "",
+					amount: 0,
+					category: "",
+				});
+				closeSnackbar();
+				setOpen(false);
+				await getData();
+				return enqueueSnackbar("Expense created successfully", {
+					variant: "success",
+				});
+			} else {
+				return enqueueSnackbar(responseData.message, { variant: "error" });
+			}
+		}
+	}
+
+	useEffect(() => {
+		getData();
+	}, []);
+
+	useEffect(() => {}, [setData]);
+
 	return (
 		<div className="w-screen h-screen p-0 m-0">
 			<div
@@ -240,11 +282,86 @@ const TodoPage = () => {
 					>
 						Toggle Theme
 					</button> */}
-					<Button variant="outline" onClick={toggleTheme}>
-						Toggle Theme
-					</Button>
+					<div className="flex justify-between">
+						<Button variant="outline" onClick={toggleTheme} className="mx-1">
+							Toggle Theme
+						</Button>
+						<Dialog open={open} onOpenChange={setOpen}>
+							<DialogTrigger asChild>
+								<Button variant="outline">Create New</Button>
+							</DialogTrigger>
+							<DialogContent className="sm:max-w-[425px]">
+								<DialogHeader>
+									<DialogTitle>Edit profile</DialogTitle>
+									<DialogDescription>
+										Make changes to your profile here. Click save when
+										you&apos;re done.
+									</DialogDescription>
+								</DialogHeader>
+								<div className="grid gap-4 py-4">
+									<div className="grid grid-cols-4 items-center gap-4">
+										<Label htmlFor="title" className="text-right">
+											Title
+										</Label>
+										<Input
+											id="titleCreate"
+											className="col-span-3"
+											placeholder="I spend x amount on..."
+											value={singleData.title || ""}
+											onChange={(e) =>
+												setSingleData({
+													...singleData,
+													title: e.target.value,
+												})
+											}
+										/>
+									</div>
+									<div className="grid grid-cols-4 items-center gap-4">
+										<Label htmlFor="amount" className="text-right">
+											Amount
+										</Label>
+										<Input
+											id="amountCreate"
+											className="col-span-3"
+											type="number"
+											placeholder="1000"
+											value={singleData.amount || ""}
+											onChange={(e) =>
+												setSingleData({
+													...singleData,
+													amount: Number(e.target.value),
+												})
+											}
+										/>
+									</div>
+									<div className="grid grid-cols-4 items-center gap-4">
+										<Label htmlFor="category" className="text-right">
+											Category
+										</Label>
+										<Input
+											id="categoryCreate"
+											className="col-span-3"
+											placeholder="Miscellaneous Expense"
+											value={singleData.category || ""}
+											onChange={(e) =>
+												setSingleData({
+													...singleData,
+													category: e.target.value,
+												})
+											}
+										/>
+									</div>
+								</div>
+								<DialogFooter>
+									<Button type="button" onClick={handleSubmit}>
+										Save changes
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+					</div>
 				</header>
-				<div className="w-2/3 mx-auto flex items-center mb-4">
+				{/* <div className="w-2/3 mx-auto flex items-center mb-4">
 					<input
 						className="border-2 border-gray-300 p-2 flex-grow mr-4 rounded"
 						type="text"
@@ -257,8 +374,8 @@ const TodoPage = () => {
 					>
 						Add Todo
 					</button>
-				</div>
-				<ul>
+				</div> */}
+				{/* <ul>
 					{todos.map((todo, index) => (
 						<li
 							key={index + index}
@@ -281,16 +398,16 @@ const TodoPage = () => {
 							</button>
 						</li>
 					))}
-				</ul>
+				</ul> */}
 			</div>
 
 			<div className="w-2/3 mx-auto">
 				<div className="flex items-center py-4">
 					<Input
-						placeholder="Filter emails..."
-						value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
+						placeholder="Filter title..."
+						value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
 						onChange={(event) =>
-							table.getColumn("email")?.setFilterValue(event.target.value)
+							table.getColumn("title")?.setFilterValue(event.target.value)
 						}
 						className="max-w-sm"
 					/>
