@@ -7,7 +7,7 @@ const ExpenseRouter = express.Router();
 ExpenseRouter.get("/", async (req: Request, res: Response) => {
 	try {
 		await MongoDB();
-		const expenses = await Expense.find();
+		const expenses = await Expense.find().select("_id title amount category");
 		return res.status(200).json({ success: true, data: expenses });
 	} catch (error) {
 		console.error("expense get:", error);
@@ -20,8 +20,8 @@ ExpenseRouter.get("/", async (req: Request, res: Response) => {
 ExpenseRouter.post("/create", async (req: Request, res: Response) => {
 	try {
 		await MongoDB();
-		const { title, amount, category, date } = req.body;
-		const expense = new Expense({ title, amount, category, date });
+		const { title, amount, category } = req.body;
+		const expense = new Expense({ title, amount, category, date: Date.now() });
 		await expense.save();
 		return res.status(200).json({ success: true, data: expense });
 	} catch (error) {
